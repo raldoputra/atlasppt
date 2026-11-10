@@ -2239,7 +2239,7 @@ async function snapSlide(P){
     cv.width=Math.round(W*sc);cv.height=Math.round(H*sc);
     var cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(im,0,0,cv.width,cv.height);
     return await new Promise(function(r){cv.toBlob(r,"image/jpeg",.85)});
-  }catch(e){console.warn("snapSlide",e);return null}
+  }catch(e){console.warn("snapSlide",e);try{gmsg("Thumbnail gagal dibuat dari slide (browser menolak render).")}catch(_){}return null}
   finally{hold.remove()}
 }
 async function thumbFor(f){
@@ -2278,7 +2278,7 @@ async function sbBackfill(){
   if(BF||!IS_ADMIN||!SB)return;
   BF=true;
   var skip=[];
-  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb")||"[]")}catch(e){}
+  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb2")||"[]")}catch(e){}
   try{
     var list=SB_ITEMS.slice();
     for(var i=0;i<list.length;i++){
@@ -2286,11 +2286,12 @@ async function sbBackfill(){
       if(it.thumb||skip.indexOf(it.path)>=0)continue;
       gmsg("Membuat thumbnail: "+it.name+"…");
       var f=await gFile(it),b=await embeddedThumb(f);
+      if(!b){try{await load(f);b=await thumbFor(f)}catch(e){console.warn(e)}}
       if(b&&await putThumb(it.path,b)){setThumb(it,b);renderG()}else skip.push(it.path);
     }
     gmsg("");
   }catch(e){console.warn(e)}
-  try{localStorage.setItem("atlas_nothumb",JSON.stringify(skip))}catch(e){}
+  try{localStorage.setItem("atlas_nothumb2",JSON.stringify(skip))}catch(e){}
   BF=false;
 }
 /* admin membuka template yang belum punya thumbnail: buat dari slide pertama */
