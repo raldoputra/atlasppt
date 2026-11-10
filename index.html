@@ -2306,7 +2306,7 @@ async function sbBackfill(){
   if(BF||!IS_ADMIN||!SB)return;
   BF=true;
   var skip=[];
-  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb3")||"[]")}catch(e){}
+  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb4")||"[]")}catch(e){}
   try{
     var list=SB_ITEMS.slice();
     for(var i=0;i<list.length;i++){
@@ -2320,7 +2320,7 @@ async function sbBackfill(){
     }
     gmsg("");
   }catch(e){console.warn(e)}
-  try{localStorage.setItem("atlas_nothumb3",JSON.stringify(skip))}catch(e){}
+  try{localStorage.setItem("atlas_nothumb4",JSON.stringify(skip))}catch(e){}
   BF=false;
 }
 /* admin membuka template yang belum punya thumbnail: buat dari slide pertama */
