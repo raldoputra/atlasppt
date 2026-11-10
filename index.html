@@ -63,7 +63,7 @@
 #abox{margin:10px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #abox [hidden]{display:none!important}
 #aem,#apw{font:inherit;padding:8px 12px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--text);width:auto;max-width:210px}
-body:not(.adm) #sv,body:not(.adm) #gup,body:not(.adm) .gc.gup,body:not(.adm) .gbt button[title="Hapus dari galeri"]{display:none}
+body:not(.adm) #sv,body:not(.adm) #gup,body:not(.adm) #go,body:not(.adm) #drop,body:not(.adm) #rm,body:not(.adm) #upcard,body:not(.adm) .gc.gup,body:not(.adm) #gup,body:not(.adm) .gc.gup,body:not(.adm) .gbt button[title="Hapus dari galeri"]{display:none}
 </style></head><body>
 <title>AtlasPPT</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -227,7 +227,7 @@ footer{text-align:center;color:var(--muted);padding:30px 20px 40px;font-size:.9r
 </header>
 <main>
   <div class="feat">
-    <div class="card reveal"><div class="e">📂</div><b>Unggah</b>Tarik atau pilih file .pptx.</div>
+    <div class="card reveal" id="upcard"><div class="e">📂</div><b>Unggah</b>Tarik atau pilih file .pptx.</div>
     <div class="card reveal"><div class="e">🎞️</div><b>Putar Morph</b>Transisi Morph, fade, dan push dimainkan seperti di PowerPoint.</div>
     <div class="card reveal"><div class="e">✏️</div><b>Edit ala Canva</b>Geser, ubah ukuran, warna, tambah teks, bentuk, dan gambar.</div>
     <div class="card reveal"><div class="e">⬇️</div><b>Unduh</b>Desain dan transisi template tetap utuh.</div>
@@ -245,7 +245,7 @@ footer{text-align:center;color:var(--muted);padding:30px 20px 40px;font-size:.9r
     <div class="card reveal" id="drop"><div style="font-size:2.2rem">🌤️</div><b>Taruh template PPT di sini</b><div style="color:var(--muted)">atau ketuk untuk memilih file .pptx</div>
       <input type="file" id="file" accept=".pptx" hidden></div>
     <div id="editor" class="card">
-      <div class="bar"><b id="fname"></b><button class="btn sm" id="sv" title="Simpan template ini ke website supaya tetap ada dan bisa dipakai pengunjung">💾 Simpan template</button> <button class="btn sm alt" id="dlo" title="Unduh file asli persis seperti yang kamu unggah">⬇ Unduh asli</button> <button class="btn sm" id="rm">🗑 Hapus template</button></div>
+      <div class="bar"><b id="fname"></b><button class="btn sm" id="sv" title="Simpan template ini ke website supaya tetap ada dan bisa dipakai pengunjung">💾 Simpan template</button> <button class="btn sm alt" id="dlo" title="Unduh file asli persis seperti yang kamu unggah">⬇ Unduh asli</button> <button class="btn sm" id="rm">🗑 Hapus template</button> <button class="btn sm alt" id="cls" title="Tutup template dan kembali ke galeri">✕ Tutup template</button></div>
       <div class="vwrap" id="vwrap">
         <div class="vtop"><b>Pratinjau</b><span class="tinfo" id="tinfo"></span><button class="btn sm" id="tgl">🎨 Edit visual</button><button class="btn sm alt" id="pres">▶ Presentasikan</button></div>
         <div class="tb" id="tb">
@@ -1327,11 +1327,11 @@ document.addEventListener("keydown",function(e){
 
 /* ---------- unggah, edit teks, AI, unduh ---------- */
 var drop=$("drop"),fi=$("file");
-drop.onclick=function(){fi.click()};
-fi.onchange=function(){if(fi.files[0])load(fi.files[0])};
+drop.onclick=function(){if(!IS_ADMIN)return;fi.click()};
+fi.onchange=function(){if(!IS_ADMIN){fi.value="";return}if(fi.files[0])load(fi.files[0])};
 ["dragover","dragenter"].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.add("over")})});
 ["dragleave","drop"].forEach(function(n){drop.addEventListener(n,function(e){e.preventDefault();drop.classList.remove("over")})});
-drop.addEventListener("drop",function(e){var f=e.dataTransfer.files[0];if(f)load(f)});
+drop.addEventListener("drop",function(e){if(!IS_ADMIN)return;var f=e.dataTransfer.files[0];if(f)load(f)});
 async function load(f){
   if(!/\.pptx$/i.test(f.name)){alert("Pilih file berformat .pptx ya 🙂");return}
   var tok=++loadTok;
@@ -1704,16 +1704,20 @@ async function syncPres(){
 }
 /* hapus template yang diunggah */
 var rmT=0;
-$("rm").onclick=function(){
-  var b=$("rm");
-  if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Yakin? Ketuk lagi untuk menghapus";rmT=setTimeout(function(){delete b.dataset.sure;b.textContent="🗑 Hapus template"},3000);return}
-  clearTimeout(rmT);delete b.dataset.sure;b.textContent="🗑 Hapus template";
+function closeTpl(toGallery){
   loadTok++;exitPresent();finishAnim();closeIn();clearTimeout(autoT);clearTimeout(inT);for(var q in rfT)clearTimeout(rfT[q]);
   for(var k in mediaCache){if(mediaCache[k])URL.revokeObjectURL(mediaCache[k])}
   zip=null;slides=[];S=[];pres=null;parts={};themeCache={};mediaCache={};usedFonts={};undoS=[];redoS=[];selIdx=-1;cur=0;
   stage.innerHTML="";$("thumbs").innerHTML="";$("slides").innerHTML="";$("editor").style.display="none";
   $("fname").textContent="";$("ask").value="";$("oAsk").value="";fi.value="";updUR();drawSel();
-  msg("");$("drop").scrollIntoView({behavior:"smooth"});
+  msg("");if(toGallery)$("galeri").scrollIntoView({behavior:"smooth"});else if(IS_ADMIN)$("drop").scrollIntoView({behavior:"smooth"});
+}
+$("cls").onclick=function(){closeTpl(true)};
+$("rm").onclick=function(){
+  var b=$("rm");
+  if(!b.dataset.sure){b.dataset.sure="1";b.textContent="Yakin? Ketuk lagi untuk menghapus";rmT=setTimeout(function(){delete b.dataset.sure;b.textContent="🗑 Hapus template"},3000);return}
+  clearTimeout(rmT);delete b.dataset.sure;b.textContent="🗑 Hapus template";
+  closeTpl(false);
 };
 
 /* ---------- galeri template + kartu fitur ---------- */
@@ -1846,6 +1850,7 @@ $("sv").onclick=async function(){if(!origFile){msg("Unggah template dulu.");retu
 function needTpl(t){gmsg(t);$("galeri").scrollIntoView({behavior:"smooth"})}
 
 function handleFiles(list){
+  if(!IS_ADMIN){gmsg("Hanya admin yang bisa mengunggah template.");return}
   var fs=Array.prototype.slice.call(list||[]).filter(function(f){return/\.pptx$/i.test(f.name)});
   if(!fs.length){alert("Pilih file berformat .pptx ya 🙂");return}
   if(fs.length===1){(async function(){await saveToGallery(fs[0]);fs[0]._fromGallery=1;load(fs[0])})();return}
@@ -1855,9 +1860,9 @@ function handleFiles(list){
     gmsg(ok+" dari "+fs.length+" template diproses. Ketuk kartu untuk membukanya.");
   })();
 }
-$("gup").onclick=function(){$("gfile").click()};
+$("gup").onclick=function(){if(!IS_ADMIN)return;$("gfile").click()};
 $("gfile").onchange=function(){var l=this.files;handleFiles(l);this.value=""};
-$("go").onclick=function(){fi.click()};
+$("go").onclick=function(){if(!IS_ADMIN)return;fi.click()};
 window.addEventListener("dragover",function(e){if(e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0)e.preventDefault()});
 window.addEventListener("drop",function(e){
   if(e.defaultPrevented||!e.dataTransfer||!e.dataTransfer.files.length)return;
@@ -1901,7 +1906,7 @@ function seaClick(e){
   }
 }
 $("sea").addEventListener("click",seaClick);seaB.addEventListener("click",seaClick);
-Array.prototype.forEach.call(document.querySelectorAll(".slide-ico"),function(x){x.onclick=function(){burst(x,["📊","✨","🫧"]);fi.click()};x.title="Ketuk untuk unggah template"});
+Array.prototype.forEach.call(document.querySelectorAll(".slide-ico"),function(x){x.onclick=function(){burst(x,["📊","✨","🫧"]);if(IS_ADMIN)fi.click()}});
 Array.prototype.forEach.call(document.querySelectorAll(".logo"),function(x){x.onclick=function(){burst(x,["🌊","✨"]);window.scrollTo({top:0,behavior:"smooth"})}});
 Array.prototype.forEach.call(document.querySelectorAll("footer"),function(x){x.onclick=function(){burst(x,["🌈","✨","🫧"])}});
 $("dlo").onclick=async function(){
