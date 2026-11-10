@@ -2250,6 +2250,13 @@ async function snapSlide(P){
     var css="";
     Array.prototype.forEach.call(document.styleSheets,function(s){try{Array.prototype.forEach.call(s.cssRules,function(r){css+=r.cssText})}catch(e){}});
     css=css.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    Array.prototype.forEach.call(box.querySelectorAll("*"),function(el){
+      Array.prototype.slice.call(el.attributes).forEach(function(a){
+        if(!/^[A-Za-z_][\w.:-]*$/.test(a.name))el.removeAttribute(a.name);
+      });
+      var st=el.getAttribute&&el.getAttribute("style");
+      if(st)el.setAttribute("style",st.replace(/font-family:\s*;?/g,""));
+    });
     var xml=new XMLSerializer().serializeToString(box);
     var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'"><foreignObject x="0" y="0" width="'+W+'" height="'+H+'"><style>'+css+"</style>"+xml+"</foreignObject></svg>";
     var im=new Image();
