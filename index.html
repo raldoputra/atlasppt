@@ -2200,6 +2200,23 @@ function blobData(u){
     return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(fr.result)};fr.onerror=rej;fr.readAsDataURL(b)});
   });
 }
+function isBlank(b){
+  return new Promise(function(res){
+    try{
+      var u=URL.createObjectURL(b),im=new Image();
+      im.onload=function(){
+        try{
+          var c=document.createElement("canvas");c.width=24;c.height=24;
+          var x=c.getContext("2d");x.drawImage(im,0,0,24,24);
+          var d=x.getImageData(0,0,24,24).data,n=0;
+          for(var i=0;i<d.length;i+=4){if(d[i]>238&&d[i+1]>238&&d[i+2]>238)n++}
+          URL.revokeObjectURL(u);res(n>=24*24*0.97);
+        }catch(e){res(false)}
+      };
+      im.onerror=function(){res(false)};im.src=u;
+    }catch(e){res(false)}
+  });
+}
 /* 1) thumbnail bawaan file PowerPoint (docProps/thumbnail.jpeg) */
 async function embeddedThumb(f){
   try{
@@ -2207,7 +2224,9 @@ async function embeddedThumb(f){
     if(!t)return null;
     var b=await t.async("uint8array");
     if(b.length<400)return null;
-    return new Blob([b],{type:/\.png$/i.test(t.name)?"image/png":"image/jpeg"});
+    var bl=new Blob([b],{type:/\.png$/i.test(t.name)?"image/png":"image/jpeg"});
+    if(await isBlank(bl))return null;
+    return bl;
   }catch(e){return null}
 }
 /* 2) cadangan: gambar slide 1 dari pemutar milik website (dipakai kalau file tidak punya thumbnail bawaan) */
@@ -2250,8 +2269,10 @@ async function thumbFor(f){
 }
 async function putThumb(path,blob){
   try{
-    var r=await SB.storage.from(BUCKET).upload("thumbs/"+thumbName(path),blob,{contentType:blob.type||"image/jpeg",upsert:false});
-    if(r.error&&!/exist|duplicate/i.test(r.error.message||""))throw r.error;
+    var r=await SB.storage.from(BUCKET).upload("thumbs/"+thumbName(path),blob,{contentType:blob.type||"image/jpeg",upsert:true});
+    if(r.error){try{await SB.storage.from(BUCKET).remove(["thumbs/"+thumbName(path)])}catch(e){}
+      r=await SB.storage.from(BUCKET).upload("thumbs/"+thumbName(path),blob,{contentType:blob.type||"image/jpeg",upsert:true});
+      if(r.error)throw r.error}
     return true;
   }catch(e){console.warn("upload thumbnail",e);return false}
 }
@@ -2267,7 +2288,7 @@ async function sbThumbs(){
     if(names&&names.indexOf(thumbName(it.path))<0)return;
     try{
       var r=await st.download("thumbs/"+thumbName(it.path));
-      if(!r.error&&r.data){setThumb(it,r.data);changed=true}
+      if(!r.error&&r.data){if(IS_ADMIN&&await isBlank(r.data)){it.redo=1}else{setThumb(it,r.data);changed=true}}
     }catch(e){}
   }));
   if(changed)renderG();
@@ -2278,11 +2299,12 @@ async function sbBackfill(){
   if(BF||!IS_ADMIN||!SB)return;
   BF=true;
   var skip=[];
-  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb2")||"[]")}catch(e){}
+  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb3")||"[]")}catch(e){}
   try{
     var list=SB_ITEMS.slice();
     for(var i=0;i<list.length;i++){
       var it=list[i];
+      if(it.thumb){try{var cb=await (await fetch(it.thumb)).blob();if(await isBlank(cb)){it.thumb="";delete TH[it.path];renderG()}}catch(e){}}
       if(it.thumb||skip.indexOf(it.path)>=0)continue;
       gmsg("Membuat thumbnail: "+it.name+"…");
       var f=await gFile(it),b=await embeddedThumb(f);
@@ -2291,7 +2313,7 @@ async function sbBackfill(){
     }
     gmsg("");
   }catch(e){console.warn(e)}
-  try{localStorage.setItem("atlas_nothumb2",JSON.stringify(skip))}catch(e){}
+  try{localStorage.setItem("atlas_nothumb3",JSON.stringify(skip))}catch(e){}
   BF=false;
 }
 /* admin membuka template yang belum punya thumbnail: buat dari slide pertama */
