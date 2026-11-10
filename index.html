@@ -256,7 +256,7 @@ footer{text-align:center;color:var(--muted);padding:30px 20px 40px;font-size:.9r
 <span class="ctx" id="ctx"><span class="sep"></span>
 <label class="cb" title="Warna isi">🎨<input type="color" id="cFill" value="#5cc8ff"></label>
 <label class="cb" title="Warna teks">A<input type="color" id="cTx" value="#000000"></label>
-<button id="szM" title="Perkecil teks">A−</button><button id="szP" title="Perbesar teks">A+</button><button id="bB"><b>B</b></button><button id="bI"><i>I</i></button>
+<button id="szM" title="Perkecil teks">A−</button><input id="fontSize" type="number" min="6" max="200" step="1" value="18" title="Ukuran font (pt)" aria-label="Ukuran font" style="width:66px;padding:6px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit"><button id="szP" title="Perbesar teks">A+</button><button id="bB"><b>B</b></button><button id="bI"><i>I</i></button><button id="bU" title="Garis bawah"><u>U</u></button>
 <select id="fnt"><option value="">Font</option><option>Arial</option><option>Georgia</option><option>Times New Roman</option><option>Courier New</option><option>Verdana</option><option>Trebuchet MS</option><option>Impact</option><option>Nunito</option></select>
 <select id="tal"><option value="">☰ Teks</option><option value="l">Kiri</option><option value="ctr">Tengah</option><option value="r">Kanan</option><option value="just">Rata penuh</option></select>
 <select id="aln"><option value="">⇔ Rata</option><option value="l">Kiri</option><option value="c">Tengah</option><option value="r">Kanan</option><option value="t">Atas</option><option value="m">Tengah vertikal</option><option value="b">Bawah</option></select>
@@ -1508,6 +1508,8 @@ $("del").onclick=function(){edit(delOf)};$("dup").onclick=function(){edit(dupOf)
 $("fwd").onclick=function(){edit(function(r){return order(r,1)})};$("bwd").onclick=function(){edit(function(r){return order(r,-1)})};
 $("szP").onclick=function(){edit(function(r){bump(r,2);return r.el})};$("szM").onclick=function(){edit(function(r){bump(r,-2);return r.el})};
 $("bB").onclick=function(){edit(function(r){toggleAttr(r,"b");return r.el})};$("bI").onclick=function(){edit(function(r){toggleAttr(r,"i");return r.el})};
+$("fontSize").onchange=function(){var v=Math.max(6,Math.min(200,+this.value||18));this.value=v;edit(function(r){runsOf(r).forEach(function(run){rPr(run).setAttribute("sz",String(Math.round(v*100)))});return r.el})};
+$("bU").onclick=function(){edit(function(r){var rs=runsOf(r),on=!rs.every(function(x){var p=c1(x,"rPr");return p&&p.getAttribute("u")==="sng"});rs.forEach(function(x){rPr(x).setAttribute("u",on?"sng":"none")});return r.el})};
 $("cFill").onchange=function(){var v=this.value.slice(1);edit(function(r){setFill(r,v);return r.el})};
 $("cTx").onchange=function(){var v=this.value.slice(1);edit(function(r){setTxColor(r,v);return r.el})};
 /* tambah objek */
