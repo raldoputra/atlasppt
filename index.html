@@ -1747,7 +1747,7 @@ function renderG(){
   all.forEach(function(it){
     var c=document.createElement("div");c.className="card gc";
     var th=document.createElement("div");th.className="gth";
-    if(/^data:image\/jpeg;base64,/.test(it.thumb||"")){var im=document.createElement("img");im.alt="";im.src=it.thumb;th.appendChild(im)}else th.textContent="📊";
+    if(/^(data:image\/|blob:)/.test(it.thumb||"")){var im=document.createElement("img");im.alt="";im.src=it.thumb;th.appendChild(im)}else th.textContent="📊";
     var b=document.createElement("div");b.className="gb";
     var bd=document.createElement("span");bd.className="gbadge"+((it.site||it.shared)?"":" loc");bd.textContent=it.site?"Website":it.shared?"Tersimpan":"Perangkat ini";
     var n=document.createElement("div");n.className="gn";n.textContent=String(it.name||"template.pptx").replace(/\.pptx$/i,"");
@@ -1838,7 +1838,7 @@ var origFile=null;var _load=load;
 load=async function(f){
   badMedia={};
   await _load(f);
-  if(zip&&slides.length){origFile=f;if(editOn)$("tgl").click();updSave();
+  if(zip&&slides.length){origFile=f;if(editOn)$("tgl").click();updSave();healThumb(f);
     if(!isSaved(f))msg("💡 Template terbuka. Tekan 💾 Simpan template supaya tersimpan di website.");
     var bk=Object.keys(badMedia);if(bk.length){var ex={};bk.forEach(function(k){ex[badMedia[k]]=1});var t="⚠ "+bk.length+" gambar ("+Object.keys(ex).join(", ").toUpperCase()+") gagal diubah menjadi tampilan di pratinjau (kemungkinan format khusus). Gambar itu tetap utuh di file asli.";msg(t);gmsg(t)}}
 };
@@ -2151,14 +2151,15 @@ Array.prototype.forEach.call(document.querySelectorAll(".feat .card"),function(c
 })();
 
 /* ---------- SUPABASE: penyimpanan permanen ---------- */
-var SB=null,SB_ITEMS=[],IS_ADMIN=false,BUCKET="ppt-templates";
+var SB=null,SB_ITEMS=[],IS_ADMIN=false,BUCKET="ppt-templates",TH={},BF=false;
 try{SB=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)}catch(e){console.warn(e)}
 gAll=function(){return SB_ITEMS.slice()};
-async function sbLoad(){
+async function sbLoad(){await sbLoad0();sbThumbs()}
+async function sbLoad0(){
   if(!SB){gmsg("Supabase belum tersambung.");return}
   var r=await SB.from("ppt_templates").select("*").order("created_at",{ascending:false});
   if(r.error){gmsg("Gagal memuat daftar: "+r.error.message);return}
-  SB_ITEMS=r.data.map(function(x){return{id:x.id,key:x.file_name+"|"+x.file_size,name:x.file_name,size:x.file_size,path:x.file_path,created:Date.parse(x.created_at),shared:true,slides:0,thumb:""}});
+  SB_ITEMS=r.data.map(function(x){return{id:x.id,key:x.file_name+"|"+x.file_size,name:x.file_name,size:x.file_size,path:x.file_path,created:Date.parse(x.created_at),shared:true,slides:0,thumb:TH[x.file_path]||""}});
   renderG();
 }
 gFile=async function(it){
@@ -2171,6 +2172,7 @@ gDelete=async function(it){
   if(!confirm("Hapus \""+it.name+"\" dari galeri?"))return;
   var a=await SB.storage.from(BUCKET).remove([it.path]);
   if(a.error||!a.data||!a.data.length){gmsg("Gagal menghapus file.");return}
+  try{await SB.storage.from(BUCKET).remove(["thumbs/"+thumbName(it.path)]);delete TH[it.path]}catch(e){}
   var b=await SB.from("ppt_templates").delete().eq("id",it.id);
   if(b.error){gmsg("Gagal menghapus data: "+b.error.message);return}
   await sbLoad();gmsg("Template dihapus.");
@@ -2188,10 +2190,122 @@ saveToGallery=async function(f){
   if(up.error){say("Gagal mengunggah: "+up.error.message);return false}
   var ins=await SB.from("ppt_templates").insert({title:f.name.replace(/\.pptx$/i,""),file_name:f.name,file_path:path,file_size:f.size});
   if(ins.error){await SB.storage.from(BUCKET).remove([path]);say("Gagal menyimpan data: "+ins.error.message);return false}
+  try{var tb=await thumbFor(f);if(tb)await putThumb(path,tb)}catch(e){console.warn(e)}
   await sbLoad();say("Tersimpan permanen ✅ Tetap ada walau website ditutup dan dibuka lagi.");updSave();return true;
 };
+/* ---------- THUMBNAIL SLIDE PERTAMA ---------- */
+function thumbName(p){return String(p).replace(/\.pptx$/i,"")+".jpg"}
+function blobData(u){
+  return fetch(u).then(function(r){return r.blob()}).then(function(b){
+    return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(fr.result)};fr.onerror=rej;fr.readAsDataURL(b)});
+  });
+}
+/* 1) thumbnail bawaan file PowerPoint (docProps/thumbnail.jpeg) */
+async function embeddedThumb(f){
+  try{
+    var z=await JSZip.loadAsync(f),t=z.file("docProps/thumbnail.jpeg")||z.file("docProps/thumbnail.jpg")||z.file("docProps/thumbnail.png");
+    if(!t)return null;
+    var b=await t.async("uint8array");
+    if(b.length<400)return null;
+    return new Blob([b],{type:/\.png$/i.test(t.name)?"image/png":"image/jpeg"});
+  }catch(e){return null}
+}
+/* 2) cadangan: gambar slide 1 dari pemutar milik website (dipakai kalau file tidak punya thumbnail bawaan) */
+async function snapSlide(P){
+  var W=pres.W,H=pres.H,hold=document.createElement("div"),box=document.createElement("div");
+  hold.style.cssText="position:fixed;left:-99999px;top:0;width:"+W+"px;height:"+H+"px;pointer-events:none";
+  box.style.cssText="position:relative;width:"+W+"px;height:"+H+"px;overflow:hidden;background:#fff;font-family:Arial,sans-serif";
+  box.appendChild(slideEl(P));hold.appendChild(box);document.body.appendChild(hold);
+  try{
+    var imgs=box.querySelectorAll("image");
+    for(var i=0;i<imgs.length;i++){
+      var h=imgs[i].getAttribute("href");
+      if(h&&h.indexOf("blob:")===0)imgs[i].setAttribute("href",await blobData(h));
+    }
+    var withBlob=box.querySelectorAll("[style*='blob:']");
+    for(var j=0;j<withBlob.length;j++){
+      var st=withBlob[j].getAttribute("style"),m=st.match(/blob:[^"')]+/g)||[];
+      for(var k=0;k<m.length;k++)st=st.split(m[k]).join(await blobData(m[k]));
+      withBlob[j].setAttribute("style",st);
+    }
+    var css="";
+    Array.prototype.forEach.call(document.styleSheets,function(s){try{Array.prototype.forEach.call(s.cssRules,function(r){css+=r.cssText})}catch(e){}});
+    css=css.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    var xml=new XMLSerializer().serializeToString(box);
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'"><foreignObject x="0" y="0" width="'+W+'" height="'+H+'"><style>'+css+"</style>"+xml+"</foreignObject></svg>";
+    var im=new Image();
+    await new Promise(function(ok,no){im.onload=ok;im.onerror=no;im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg)});
+    var sc=Math.min(1,640/W),cv=document.createElement("canvas");
+    cv.width=Math.round(W*sc);cv.height=Math.round(H*sc);
+    var cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(im,0,0,cv.width,cv.height);
+    return await new Promise(function(r){cv.toBlob(r,"image/jpeg",.85)});
+  }catch(e){console.warn("snapSlide",e);return null}
+  finally{hold.remove()}
+}
+async function thumbFor(f){
+  var b=await embeddedThumb(f);
+  if(b)return b;
+  if(typeof origFile!=="undefined"&&origFile===f&&S[0]&&pres)return await snapSlide(S[0]);
+  return null;
+}
+async function putThumb(path,blob){
+  try{
+    var r=await SB.storage.from(BUCKET).upload("thumbs/"+thumbName(path),blob,{contentType:blob.type||"image/jpeg",upsert:false});
+    if(r.error&&!/exist|duplicate/i.test(r.error.message||""))throw r.error;
+    return true;
+  }catch(e){console.warn("upload thumbnail",e);return false}
+}
+function setThumb(it,blob){var u=URL.createObjectURL(blob);TH[it.path]=u;it.thumb=u}
+/* muat thumbnail yang sudah tersimpan untuk semua kartu */
+async function sbThumbs(){
+  if(!SB)return;
+  var st=SB.storage.from(BUCKET),names=null;
+  try{var l=await st.list("thumbs",{limit:1000});if(!l.error&&l.data)names=l.data.map(function(o){return o.name})}catch(e){}
+  var changed=false;
+  await Promise.all(SB_ITEMS.map(async function(it){
+    if(it.thumb)return;
+    if(names&&names.indexOf(thumbName(it.path))<0)return;
+    try{
+      var r=await st.download("thumbs/"+thumbName(it.path));
+      if(!r.error&&r.data){setThumb(it,r.data);changed=true}
+    }catch(e){}
+  }));
+  if(changed)renderG();
+  sbBackfill();
+}
+/* admin: buatkan thumbnail untuk template lama yang belum punya */
+async function sbBackfill(){
+  if(BF||!IS_ADMIN||!SB)return;
+  BF=true;
+  var skip=[];
+  try{skip=JSON.parse(localStorage.getItem("atlas_nothumb")||"[]")}catch(e){}
+  try{
+    var list=SB_ITEMS.slice();
+    for(var i=0;i<list.length;i++){
+      var it=list[i];
+      if(it.thumb||skip.indexOf(it.path)>=0)continue;
+      gmsg("Membuat thumbnail: "+it.name+"…");
+      var f=await gFile(it),b=await embeddedThumb(f);
+      if(b&&await putThumb(it.path,b)){setThumb(it,b);renderG()}else skip.push(it.path);
+    }
+    gmsg("");
+  }catch(e){console.warn(e)}
+  try{localStorage.setItem("atlas_nothumb",JSON.stringify(skip))}catch(e){}
+  BF=false;
+}
+/* admin membuka template yang belum punya thumbnail: buat dari slide pertama */
+async function healThumb(f){
+  try{
+    if(!IS_ADMIN||!SB)return;
+    var key=f.name+"|"+f.size,it=SB_ITEMS.filter(function(x){return x.key===key})[0];
+    if(!it||it.thumb)return;
+    var b=await thumbFor(f);
+    if(b&&await putThumb(it.path,b)){setThumb(it,b);renderG()}
+  }catch(e){console.warn(e)}
+}
+
 function setAdmin(on){
-  IS_ADMIN=on;document.body.classList.toggle("adm",on);
+  IS_ADMIN=on;document.body.classList.toggle("adm",on);if(on)setTimeout(sbBackfill,800);
   $("aopen").hidden=on;$("aform").hidden=true;$("aout").hidden=!on;
 }
 $("aopen").onclick=function(){$("aopen").hidden=true;$("aform").hidden=false;$("aem").focus()};
