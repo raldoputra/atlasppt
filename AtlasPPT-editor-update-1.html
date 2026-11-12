@@ -64,7 +64,16 @@
 #abox [hidden]{display:none!important}
 #aem,#apw{font:inherit;padding:8px 12px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--text);width:auto;max-width:210px}
 body:not(.adm) #sv,body:not(.adm) #gup,body:not(.adm) .gc.gup,body:not(.adm) .gbt button[title="Hapus dari galeri"]{display:none}
-</style></head><body>
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b1066">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AtlasPPT">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+</head><body>
 <title>AtlasPPT</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
@@ -2303,4 +2312,13 @@ if(SB){SB.auth.getSession().then(function(r){if(r.data&&r.data.session){setAdmin
 })();
 </script>
 
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function (e) {
+      console.warn('Service worker gagal didaftarkan:', e);
+    });
+  });
+}
+</script>
 </body></html>

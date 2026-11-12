@@ -1,0 +1,25 @@
+{
+  "name": "AtlasPPT",
+  "short_name": "AtlasPPT",
+  "description": "Unggah template .pptx, putar transisi Morph, edit, dan unduh hasilnya.",
+  "lang": "id",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1066",
+  "theme_color": "#0b1066",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Buka Editor PowerPoint",
+      "short_name": "Editor",
+      "url": "./AtlasPPT-editor-update-1.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
