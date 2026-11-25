@@ -314,8 +314,8 @@ function msg(t){$("msg").textContent=t||""}
 var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");io.unobserve(e.target)}})},{threshold:.15});
 document.querySelectorAll(".reveal").forEach(function(el,i){el.style.transitionDelay=(i%4)*90+"ms";io.observe(el)});
 (function(){var sea=$("sea");function R(a,b){return a+Math.random()*(b-a)}
-for(var i=0;i<26;i++){var b=document.createElement("div"),s=R(8,30);b.className="bub";b.style.cssText="left:"+R(0,100)+"%;width:"+s+"px;height:"+s+"px;animation-duration:"+R(9,22)+"s;animation-delay:"+(-R(0,22))+"s;--dx:"+R(-40,40)+"px";sea.appendChild(b)}
-for(var j=0;j<36;j++){var p=document.createElement("div"),z=R(2,5);p.className="bub p";p.style.cssText="left:"+R(0,100)+"%;width:"+z+"px;height:"+z+"px;animation-duration:"+R(14,34)+"s;animation-delay:"+(-R(0,34))+"s;--dx:"+R(-60,60)+"px";sea.appendChild(p)}})();
+for(var i=0;i<8;i++){var b=document.createElement("div"),s=R(8,30);b.className="bub";b.style.cssText="left:"+R(0,100)+"%;width:"+s+"px;height:"+s+"px;animation-duration:"+R(9,22)+"s;animation-delay:"+(-R(0,22))+"s;--dx:"+R(-40,40)+"px";sea.appendChild(b)}
+for(var j=0;j<10;j++){var p=document.createElement("div"),z=R(2,5);p.className="bub p";p.style.cssText="left:"+R(0,100)+"%;width:"+z+"px;height:"+z+"px;animation-duration:"+R(14,34)+"s;animation-delay:"+(-R(0,34))+"s;--dx:"+R(-60,60)+"px";sea.appendChild(p)}})();
 $("go").onclick=function(){$("studio").scrollIntoView({behavior:"smooth"});};
 
 /* ---------- helper XML ---------- */
@@ -1989,6 +1989,7 @@ var OBS={};
       if(m>best){best=m;by=y}}
     return by;
   }
+  var nInit=0;
   function make(k,x0){
     var g=CFG[k],dr=g.t==="jelly",c={k:k,g:g,dr:dr,w:g.w*SC,h:g.w*SC*.75,x:0,y:0,by:0,bx:0,vx:0,vy:0,py:0,dir:Math.random()<.5?1:-1,sgn:1,ph:rnd(0,6.28),ph2:rnd(0,6.28),flip:1,sp:g.v*rnd(.88,1.12),turn:rnd(6,16),dart:0,push:0,pushx:0,leapT:0};
     var d=document.createElement("div"),fl=document.createElement("span"),im=spr(g.img||k,c.w);fl.className="fl";fl.style.transformOrigin="50% 50%";im.style.transformOrigin=g.piv||"50% 0";
@@ -1997,11 +1998,11 @@ var OBS={};
     else{d.className="sw live";var s=document.createElement("span");s.className="fish";s.appendChild(fl);d.appendChild(s)}
     im.onload=function(){c.h=c.w*im.naturalHeight/im.naturalWidth};
     c.el=d;c.fl=fl;c.im=im;SEA.appendChild(d);C.push(c);
-    if(dr){c.bx=x0;c.y=rnd(.2,.9)*H;c.x=c.bx}
-    else{c.x=x0;c.by=pickY(c);c.y=c.by;c.vx=c.dir*c.sp}
+    c.act=false;c.wait=(nInit++)*7+rnd(.5,4);c.x=-9999;c.y=-9999;c.by=H*.5;c.bx=0;
     return c;
   }
-  function respawn(c){
+  function respawn(c){c.act=false;c.wait=rnd(8,20);c.x=-9999;c.y=-9999}
+  function place(c){c.act=true;
     if(c.dr){c.y=H+c.h+30;c.bx=rnd(.06,.88)*W;return}
     c.dir=Math.random()<.5?1:-1;c.x=c.dir>0?-c.w-70:W+70;c.by=pickY(c);c.vx=c.dir*c.sp*.7;c.turn=rnd(6,16);c.dart=0;
   }
@@ -2011,6 +2012,10 @@ var OBS={};
   function step(dt,tt){
     DT=dt;
     C.forEach(function(c){
+      if(c.wait>0){c.wait-=dt;if(c.wait>0)return;
+        var n=0;C.forEach(function(o){if(o!==c&&o.act&&o.dr===c.dr)n++});
+        if(n>=(c.dr?1:3)){c.wait=2.5;return}
+        place(c)}
       var g=c.g;c.py=c.y;
       c.ph+=dt*Math.PI*2*g.fq*(c.dr?1:(.55+Math.min(1.4,Math.abs(c.vx)/g.v)*.6));
       if(c.dr){ /* ubur-ubur & gurita: denyut lalu meluncur naik */
@@ -2086,7 +2091,7 @@ var OBS={};
 
 /* ---------- hiu mengejar ikan badut ---------- */
 (function(){
-  var L=$("sea"),W=innerWidth,H=innerHeight,t=0,last=performance.now(),out=0,cool=0;
+  var L=$("sea"),W=innerWidth,H=innerHeight,t=0,last=performance.now(),out=0,cool=0,hold=14;
   var fe=document.createElement("div"),sh=document.createElement("div");
   fe.className="chase";sh.className="chase shark";fe.appendChild(spr("clown",112,"wig"));sh.appendChild(spr("shark",190,"wig"));fe.title="Ikan badut: ketuk biar ngebut!";sh.title="Tampar hiunya!";
   L.appendChild(fe);L.appendChild(sh);
@@ -2100,6 +2105,7 @@ var OBS={};
   sh.onclick=function(){h.stun=1.8;h.imp=-h.face*1100;burst(sh,["💥","💫","⭐"]);pop(sh,"PLAK! 💥")};
   function frame(now){
     var dt=Math.min(.05,(now-last)/1000);last=now;t+=dt;
+    if(hold>0){hold-=dt;fe.style.transform=sh.style.transform="translate(-9999px,-9999px)";delete OBS.f;delete OBS.s;if(hold<=0)spawn();requestAnimationFrame(frame);return}
     if(!document.body.classList.contains("presenting")){
       f.boost=Math.max(0,f.boost-dt);cool=Math.max(0,cool-dt);
       f.x+=f.dir*(f.boost>0?430:105)*dt;f.y=f.y0+Math.sin(t*2.4)*20;
@@ -2118,7 +2124,7 @@ var OBS={};
       OBS.f={x:f.x+56,y:f.y+35,w:112,h:70};OBS.s={x:h.x+95,y:h.y+40,w:190,h:80};
       var gone=f.dir>0?(f.x>W+160&&h.x>W+160):(f.x<-160&&h.x<-160);
       if(f.x>W+160||f.x<-160)out+=dt;
-      if(gone||out>8)spawn();
+      if(gone||out>8){spawn();hold=rnd(12,22)}
     }
     requestAnimationFrame(frame);
   }
